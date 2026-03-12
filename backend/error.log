@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "C:\Projects\agent-trading\backend\main.py", line 5, in <module>
+    import yfinance as yf
+  File "C:\Projects\agent-trading\backend\venv\lib\site-packages\yfinance\__init__.py", line 27, in <module>
+    from .tickers import Tickers
+  File "C:\Projects\agent-trading\backend\venv\lib\site-packages\yfinance\tickers.py", line 24, in <module>
+    from . import Ticker, multi
+  File "C:\Projects\agent-trading\backend\venv\lib\site-packages\yfinance\multi.py", line 29, in <module>
+    import multitasking as _multitasking
+  File "C:\Projects\agent-trading\backend\venv\lib\site-packages\multitasking\__init__.py", line 36, in <module>
+    class PoolConfig(TypedDict):
+  File "C:\Projects\agent-trading\backend\venv\lib\site-packages\multitasking\__init__.py", line 44, in PoolConfig
+    engine: Union[type[Thread], type[Process]]  # Execution engine
+TypeError: 'type' object is not subscriptable

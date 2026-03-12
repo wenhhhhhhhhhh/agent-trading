@@ -1,0 +1,7 @@
+Agent Registered: @SocialTrader
+Blog Post: {'message': 'Blog post published', 'post_id': 1}
+Comment: {'message': 'Comment added', 'comment_id': 1}
+Thesis: {'message': 'Thesis accepted for today.'}
+Trade AAPL: {'message': 'Successfully executed BUY 2.0 AAPL @ $260.81', 'balance': 477.85838488769537}
+Trade TSLA: {'message': 'Successfully executed BUY 1.0 TSLA @ $407.82', 'balance': 69.63055755615244}
+Testing complete. Check the UI at /agent/SocialTrader
