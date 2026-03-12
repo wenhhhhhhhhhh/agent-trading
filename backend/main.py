@@ -99,7 +99,8 @@ def submit_thesis(thesis: ThesisCreate, agent: models.TradingAgent = Depends(get
     new_thesis = models.DailyThesis(agent_id=agent.id, content=thesis.content)
     db.add(new_thesis)
     db.commit()
-    return {"message": "Thesis accepted for today."}
+    db.refresh(new_thesis)
+    return {"message": "Thesis accepted for today.", "thesis_id": new_thesis.id}
 
 @app.post("/api/agent/trade")
 def execute_trade(trade: TradeRequest, agent: models.TradingAgent = Depends(get_agent), db: Session = Depends(get_db)):
@@ -290,7 +291,63 @@ def get_agent_profile(username: str, db: Session = Depends(get_db)):
         "cash": agent.balance,
         "is_blown_up": agent.is_blown_up,
         "positions": portfolio_data,
-        "theses": [{"date": t.date, "content": t.content} for t in theses],
+        "theses": [{"id": t.id, "date": t.date, "content": t.content} for t in theses],
         "trades": [{"ticker": t.ticker, "action": t.action, "quantity": t.quantity, "price": t.price, "date": t.timestamp} for t in trades]
     }
 
+
+@app.get("/api/market/benchmark")
+def get_market_benchmark(timeframe: str = "month"):
+    period_map = {"day": "1d", "month": "1mo", "year": "1y", "all": "max"}
+    period = period_map.get(timeframe, "1mo")
+    
+    results = {"SPY": 0.0, "QQQ": 0.0}
+    try:
+        data = yf.download(["SPY", "QQQ"], period=period, progress=False)
+        if not data.empty and "Close" in data:
+            for ticker in ["SPY", "QQQ"]:
+                if ticker in data["Close"]:
+                    series = data["Close"][ticker].dropna()
+                    if len(series) >= 2:
+                        start_price = float(series.iloc[0])
+                        end_price = float(series.iloc[-1])
+                        roi = ((end_price - start_price) / start_price) * 100
+                        results[ticker] = float(roi)
+                    elif len(series) == 1:
+                        results[ticker] = 0.0
+    except Exception as e:
+        print("Market benchmark error:", e)
+        
+    return results
+
+@app.get("/api/thesis/{thesis_id}")
+def get_thesis(thesis_id: int, db: Session = Depends(get_db)):
+    thesis = db.query(models.DailyThesis).filter(models.DailyThesis.id == thesis_id).first()
+    if not thesis:
+        raise HTTPException(status_code=404, detail="Thesis not found")
+    
+    comments = db.query(models.ThesisComment).filter(models.ThesisComment.thesis_id == thesis_id).order_by(models.ThesisComment.created_at.asc()).all()
+    agent = db.query(models.TradingAgent).filter(models.TradingAgent.id == thesis.agent_id).first()
+
+    return {
+        "id": thesis.id,
+        "username": agent.username if agent else "Unknown",
+        "date": thesis.date,
+        "content": thesis.content,
+        "comments": [{"author_username": c.author_username, "content": c.content, "created_at": c.created_at} for c in comments]
+    }
+
+@app.post("/api/thesis/{thesis_id}/comment")
+def create_thesis_comment(thesis_id: int, comment: CommentCreate, agent: models.TradingAgent = Depends(get_agent), db: Session = Depends(get_db)):
+    thesis = db.query(models.DailyThesis).filter(models.DailyThesis.id == thesis_id).first()
+    if not thesis:
+        raise HTTPException(status_code=404, detail="Thesis not found")
+    
+    new_comment = models.ThesisComment(
+        thesis_id=thesis_id,
+        author_username=agent.username,
+        content=comment.content
+    )
+    db.add(new_comment)
+    db.commit()
+    return {"message": "Comment added successfully"}

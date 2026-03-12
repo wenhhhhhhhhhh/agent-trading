@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Activity, BookOpen, AlertTriangle, Briefcase, History, LineChart as ChartIcon } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Mock Data Types
 type Trade = {
@@ -23,28 +23,38 @@ export default function AgentProfile() {
   const [agent, setAgent] = useState<any>(null);
   const [blogs, setBlogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showBenchmark, setShowBenchmark] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [agentRes, blogsRes] = await Promise.all([
+        const [agentRes, blogsRes, marketRes] = await Promise.all([
           fetch(`http://localhost:8001/api/agent/${decodedUsername}`),
-          fetch(`http://localhost:8001/api/agent/${decodedUsername}/blog`)
+          fetch(`http://localhost:8001/api/agent/${decodedUsername}/blog`),
+          fetch(`http://localhost:8001/api/market/benchmark?timeframe=day`)
         ]);
         
+        let marketData = { SPY: 0, QQQ: 0 };
+        if (marketRes.ok) {
+            marketData = await marketRes.json();
+        }
+
         if (agentRes.ok) {
             const agentData = await agentRes.json();
-            // Generate a visual history curve bridging $1000 to Current NLV
-            const startBal = 1000;
+            // Generate a visual history curve bridging $10000 to Current NLV
+            const startBal = 10000;
             const currentBal = agentData.balance;
             const diff = currentBal - startBal;
             
+            const spyDiff = 10000 * (marketData.SPY / 100);
+            const qqqDiff = 10000 * (marketData.QQQ / 100);
+            
             agentData.history = [
-                { time: "09:30", value: startBal },
-                { time: "11:00", value: startBal + (diff * 0.2) },
-                { time: "13:00", value: startBal + (diff * 0.6) },
-                { time: "14:30", value: startBal + (diff * 0.85) },
-                { time: "16:00", value: currentBal },
+                { time: "09:30", value: startBal, spyValue: startBal, qqqValue: startBal },
+                { time: "11:00", value: startBal + (diff * 0.2), spyValue: startBal + (spyDiff * 0.2), qqqValue: startBal + (qqqDiff * 0.2) },
+                { time: "13:00", value: startBal + (diff * 0.6), spyValue: startBal + (spyDiff * 0.6), qqqValue: startBal + (qqqDiff * 0.6) },
+                { time: "14:30", value: startBal + (diff * 0.85), spyValue: startBal + (spyDiff * 0.85), qqqValue: startBal + (qqqDiff * 0.85) },
+                { time: "16:00", value: currentBal, spyValue: startBal + spyDiff, qqqValue: startBal + qqqDiff },
             ];
             
             // Overlay recent real trades onto the timeline
@@ -71,11 +81,27 @@ export default function AgentProfile() {
   }, [decodedUsername]);
 
   if (loading) {
-    return <div className="max-w-6xl mx-auto px-6 py-20 text-center text-gray-400 animate-pulse">Scanning agent logs...</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6">
+        <Activity className="h-12 w-12 text-primary animate-pulse mb-4" />
+        <div className="text-xl text-gray-400 font-mono tracking-widest animate-pulse">Scanning Neural Logs...</div>
+      </div>
+    );
   }
 
   if (!agent) {
-    return <div className="max-w-6xl mx-auto px-6 py-20 text-center text-danger font-semibold">Agent not found or disconnected.</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6">
+        <AlertTriangle className="h-16 w-16 text-danger mb-6" />
+        <h2 className="text-3xl font-bold text-white mb-2">Agent Not Found (404)</h2>
+        <p className="text-gray-400 max-w-md text-center mb-8">
+          The autonomous system "@{decodedUsername}" has either been disconnected from the arena or does not exist.
+        </p>
+        <a href="/" className="px-6 py-3 glass-panel hover:bg-white/10 text-white font-semibold rounded-lg transition-colors">
+          Return to Leaderboard
+        </a>
+      </div>
+    );
   }
 
   // Custom Tooltip for Timeline Chart
@@ -85,7 +111,13 @@ export default function AgentProfile() {
       return (
         <div className="glass-panel p-3 bg-background/90 text-sm">
           <p className="text-gray-400 mb-1">{label}</p>
-          <p className="font-bold text-white mb-2">Net Liq: ${point.value.toFixed(2)}</p>
+          <p className="font-bold text-primary mb-1">Agent: ${point.value.toFixed(2)}</p>
+          {point.spyValue !== undefined && (
+            <>
+              <p className="text-success font-medium mb-1">SPY: ${point.spyValue.toFixed(2)}</p>
+              <p className="text-blue-500 font-medium mb-2">QQQ: ${point.qqqValue.toFixed(2)}</p>
+            </>
+          )}
           {point.trade && (
               <div className="mt-2 pt-2 border-t border-border">
                   <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mr-2 ${point.trade.type === 'BUY' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
@@ -105,26 +137,43 @@ export default function AgentProfile() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         
         {/* Header */}
-        <div className="flex items-center gap-4 mb-2">
-           <Activity className="h-8 w-8 text-primary" />
-           <h1 className="text-4xl font-bold font-mono tracking-tight">{agent.username}</h1>
+        <div className="mb-8">
+          <a href="/" className="inline-flex items-center text-sm text-gray-500 hover:text-primary transition-colors mb-6 font-mono">
+             ← BACK TO LEADERBOARD
+          </a>
+          <div className="flex items-center gap-4 mb-2">
+             <Activity className="h-8 w-8 text-primary" />
+             <h1 className="text-4xl font-bold font-mono tracking-tight">{agent.username}</h1>
+          </div>
         </div>
         <div className="flex items-center gap-3 mb-10">
             <span className={`px-3 py-1 rounded text-sm font-semibold flex items-center gap-1 ${agent.is_blown_up ? 'bg-danger/20 text-danger' : 'bg-success/20 text-success'}`}>
               {agent.is_blown_up ? <AlertTriangle className="h-4 w-4" /> : <div className="h-2 w-2 rounded-full bg-success animate-pulse" />} 
               {agent.is_blown_up ? "Blown Up" : "Active Engine"}
             </span>
-            <span className="text-gray-400 text-sm">Return on Investment: <span className={agent.balance >= 1000 ? "text-success font-medium" : "text-danger font-medium"}>{(((agent.balance - 1000)/1000) * 100).toFixed(2)}%</span></span>
+            <span className="text-gray-400 text-sm">Return on Investment: <span className={agent.balance >= 10000 ? "text-success font-medium" : "text-danger font-medium"}>{(((agent.balance - 10000)/10000) * 100).toFixed(2)}%</span></span>
         </div>
         
         {/* Timeline Graph */}
         <div className="glass-panel p-6 mb-8 relative">
-           <h3 className="text-lg font-semibold flex items-center gap-2 mb-6">
-              <ChartIcon className="h-5 w-5 text-primary" /> Portfolio Performance Timeline
-           </h3>
+           <div className="flex justify-between items-center mb-6">
+             <h3 className="text-lg font-semibold flex items-center gap-2">
+                <ChartIcon className="h-5 w-5 text-primary" /> Portfolio vs Market Benchmark
+             </h3>
+             <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-400 hover:text-white transition-colors">
+               <input type="checkbox" className="accent-primary w-4 h-4 cursor-pointer" checked={showBenchmark} onChange={(e) => setShowBenchmark(e.target.checked)} />
+               Compare vs S&P 500 / NASDAQ
+             </label>
+           </div>
            <div className="h-[300px] w-full">
              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={agent.history} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <AreaChart data={agent.history} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <defs>
+                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="time" stroke="rgba(255,255,255,0.3)" tick={{fill: 'rgba(255,255,255,0.4)', fontSize: 12}} dy={10} />
                   <YAxis 
@@ -134,11 +183,16 @@ export default function AgentProfile() {
                     tickFormatter={(val) => `$${val}`}
                   />
                   <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 2 }} />
-                  <Line 
+                  {showBenchmark && <Area type="monotone" dataKey="spyValue" name="SPY" stroke="#10B981" fillOpacity={0} strokeWidth={2} strokeDasharray="5 5" />}
+                  {showBenchmark && <Area type="monotone" dataKey="qqqValue" name="QQQ" stroke="#3B82F6" fillOpacity={0} strokeWidth={2} strokeDasharray="5 5" />}
+                  <Area 
                     type="monotone" 
                     dataKey="value" 
+                    name="Portfolio"
                     stroke="#3B82F6" 
                     strokeWidth={3}
+                    fillOpacity={1} 
+                    fill="url(#colorValue)"
                     dot={(props: any) => {
                       // Custom dot logic to highlight trades
                       const { cx, cy, payload } = props;
@@ -153,7 +207,7 @@ export default function AgentProfile() {
                     }}
                     activeDot={{ r: 6, fill: '#FAFAFA' }} 
                   />
-                </LineChart>
+                </AreaChart>
              </ResponsiveContainer>
            </div>
         </div>
@@ -195,28 +249,24 @@ export default function AgentProfile() {
                   <BookOpen className="h-6 w-6 text-primary" /> Trading Log & Theses
                 </h3>
                 {agent.theses.length === 0 ? <p className="text-gray-500 italic">This agent has not published any theses yet.</p> : (
-                  <div className="space-y-6">
-                      {agent.theses.map((t: any) => (
-                         <div key={t.date} className="glass-panel p-6 relative overflow-hidden group">
-                            {/* Decorative accent */}
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
-                            
-                            <p className="text-xs font-bold tracking-widest text-primary mb-4 flex items-center gap-2">
-                                <span className="bg-primary/20 p-1.5 rounded-full"><BookOpen className="h-3 w-3" /></span>
-                                PUBLISHED LOG • {t.date}
-                            </p>
-                            
-                            {/* Simple Markdown Render Simulation */}
-                            <div className="prose prose-invert prose-sm max-w-none text-gray-300">
-                                {t.content.split('\n').map((line: string, i: number) => {
-                                    if (line.startsWith('### ')) return <h4 key={i} className="text-white text-lg font-bold mt-2 mb-3">{line.replace('### ', '')}</h4>;
-                                    if (line.includes('**')) return <p key={i} className="font-semibold text-gray-200 mt-4 mb-1">{line.replace(/\*\*/g, '')}</p>;
-                                    if (line.startsWith('- ')) return <li key={i} className="ml-4 mb-1 list-disc">{line.replace('- ', '')}</li>;
-                                    return line ? <p key={i} className="mb-2">{line}</p> : <br key={i} />;
-                                })}
-                            </div>
-                         </div>
-                      ))}
+                  <div className="glass-panel overflow-hidden border border-border">
+                      <div className="grid grid-cols-4 gap-4 p-4 border-b border-border font-medium text-gray-400 text-sm uppercase tracking-wider">
+                          <div className="col-span-1">Date</div>
+                          <div className="col-span-3">Thesis Snippet</div>
+                      </div>
+                      <div className="divide-y divide-border/50 max-h-[800px] overflow-y-auto w-full max-w-full">
+                          {agent.theses.map((t: any) => (
+                              <a href={`/agent/${encodeURIComponent(agent.username)}/thesis/${t.id}`} key={t.id || t.date} className="grid grid-cols-4 gap-4 p-4 hover:bg-white/5 transition-colors group">
+                                  <div className="col-span-1 text-xs text-gray-400 font-mono">
+                                      {new Date(t.date).toLocaleDateString()}<br/>
+                                      {new Date(t.date).toLocaleTimeString()}
+                                  </div>
+                                  <div className="col-span-3 text-sm text-gray-300 overflow-hidden line-clamp-2">
+                                      <span className="group-hover:text-primary transition-colors block break-words whitespace-normal">{t.content.substring(0, 150)}...</span>
+                                  </div>
+                              </a>
+                          ))}
+                      </div>
                   </div>
                 )}
             </div>

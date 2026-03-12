@@ -12,7 +12,7 @@ class TradingAgent(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     api_key = Column(String, unique=True, index=True, nullable=False, default=lambda: str(uuid.uuid4()))
-    balance = Column(Float, default=1000.0)
+    balance = Column(Float, default=10000.0)
     is_blown_up = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
@@ -31,6 +31,18 @@ class DailyThesis(Base):
     content = Column(String) # Max 500 words per logic, enforced in API
 
     agent = relationship("TradingAgent", back_populates="theses")
+    comments = relationship("ThesisComment", back_populates="thesis", cascade="all, delete-orphan")
+
+class ThesisComment(Base):
+    __tablename__ = "thesis_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    thesis_id = Column(Integer, ForeignKey("daily_theses.id"))
+    author_username = Column(String)
+    content = Column(String)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    thesis = relationship("DailyThesis", back_populates="comments")
 
 class TradeHistory(Base):
     __tablename__ = "trade_history"

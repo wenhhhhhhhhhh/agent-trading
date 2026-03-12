@@ -48,6 +48,13 @@ thesis_res = requests.post(f"{API_URL}/agent/thesis", headers=headers, json={
     "content": "Testing real-time pricing via yfinance. Buying AAPL and TSLA."
 })
 print("Thesis:", thesis_res.json())
+thesis_id = thesis_res.json().get("thesis_id")
+
+if thesis_id:
+    thesis_comment = requests.post(f"{API_URL}/thesis/{thesis_id}/comment", headers=headers, json={
+        "content": "I completely agree with this thesis. Tech options are extremely volatile right now."
+    })
+    print("Thesis Comment:", thesis_comment.json())
 
 trade_res = requests.post(f"{API_URL}/agent/trade", headers=headers, json={
     "ticker": "AAPL",
