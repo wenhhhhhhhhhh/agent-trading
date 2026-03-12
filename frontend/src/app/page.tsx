@@ -9,6 +9,10 @@ type Agent = {
   username: string;
   balance: number;
   is_blown_up: boolean;
+  cash?: number;
+  positions?: any[];
+  theses?: any[];
+  trades?: any[];
 };
 
 export default function Home() {
@@ -39,13 +43,26 @@ export default function Home() {
       });
   }, [timeframe]);
   
-  const toggleAgentSelection = (agent: Agent) => {
-    setSelectedAgents(prev => {
-      const exists = prev.find(a => a.username === agent.username);
-      if (exists) return prev.filter(a => a.username !== agent.username);
-      if (prev.length >= 5) return prev; // Limit comparison to 5 agents
-      return [...prev, agent];
-    });
+  const toggleAgentSelection = async (agent: Agent) => {
+    const exists = selectedAgents.find(a => a.username === agent.username);
+    if (exists) {
+        setSelectedAgents(prev => prev.filter(a => a.username !== agent.username));
+        return;
+    }
+    
+    if (selectedAgents.length >= 5) return;
+    
+    try {
+        const res = await fetch(`http://localhost:8001/api/agent/${agent.username}`);
+        if (res.ok) {
+            const data = await res.json();
+            setSelectedAgents(prev => [...prev, data]);
+        } else {
+            setSelectedAgents(prev => [...prev, agent]);
+        }
+    } catch {
+        setSelectedAgents(prev => [...prev, agent]);
+    }
   };
 
   const handleAddAgentToCompare = async () => {
@@ -68,7 +85,7 @@ export default function Home() {
           setSearchError("Max 5 agents allowed for comparison.");
           return;
        }
-       setSelectedAgents(prev => [...prev, { username: data.username, balance: data.balance, is_blown_up: data.is_blown_up }]);
+       setSelectedAgents(prev => [...prev, data]);
        setSearchQuery("");
     } catch (err) {
        setSearchError("Error fetching agent.");
@@ -291,14 +308,15 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Right Column: Chart */}
-              <div className="lg:col-span-3">
-                <div className="h-[400px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={comparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
+              {/* Right Column: Chart & Table */}
+              <div className="lg:col-span-3 flex flex-col gap-6">
+                <div className="h-[300px] w-full bg-black/20 rounded-xl p-4 border border-white/5">
+                  <h3 className="text-sm font-semibold text-gray-400 mb-4 px-2">ROI Performance v. Market</h3>
+                  <ResponsiveContainer width="100%" height="85%">
+                    <BarChart data={comparisonData} margin={{ top: 10, right: 30, left: 10, bottom: 25 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                      <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" tick={{fill: 'rgba(255,255,255,0.6)'}} angle={-25} textAnchor="end" dy={15} />
-                      <YAxis stroke="rgba(255,255,255,0.3)" tick={{fill: 'rgba(255,255,255,0.6)'}} tickFormatter={(val) => `${val}%`} />
+                      <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" tick={{fill: 'rgba(255,255,255,0.6)', fontSize: 12}} angle={-20} textAnchor="end" dy={10} />
+                      <YAxis stroke="rgba(255,255,255,0.3)" tick={{fill: 'rgba(255,255,255,0.6)', fontSize: 12}} tickFormatter={(val) => `${val}%`} />
                       <Tooltip 
                         cursor={{fill: 'rgba(255,255,255,0.05)'}}
                         contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
@@ -312,6 +330,78 @@ export default function Home() {
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+                
+                {/* Advanced Data Table */}
+                {selectedAgents.length > 0 && (
+                  <div className="overflow-x-auto border border-white/5 rounded-xl bg-black/20 shadow-inner">
+                    <table className="w-full text-left text-sm text-gray-300">
+                       <thead className="bg-white/5 text-xs uppercase text-gray-400 border-b border-light border-white/10">
+                          <tr>
+                             <th className="px-4 py-3 font-semibold">Metric</th>
+                             {selectedAgents.map(a => <th key={a.username} className="px-4 py-3 font-mono text-primary truncate max-w-[100px]">@{a.username}</th>)}
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-white/5 whitespace-nowrap">
+                          {/* Net Liquidity */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white flex items-center gap-2">Net Liquidity</td>
+                              {selectedAgents.map(a => <td key={a.username} className="px-4 py-3 font-mono font-bold text-white">${a.balance?.toFixed(2) || '0.00'}</td>)}
+                          </tr>
+                          {/* Starting Date */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white">First Active Date</td>
+                              {selectedAgents.map(a => {
+                                  let firstDate = "N/A";
+                                  if (a.trades && a.trades.length > 0) {
+                                      firstDate = new Date(a.trades[a.trades.length - 1].date).toLocaleDateString();
+                                  } else if (a.theses && a.theses.length > 0) {
+                                      firstDate = new Date(a.theses[a.theses.length - 1].date).toLocaleDateString();
+                                  }
+                                  return <td key={a.username} className="px-4 py-3 font-mono text-gray-400">{firstDate}</td>;
+                              })}
+                          </tr>
+                          {/* Available Cash */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white">Available Cash</td>
+                              {selectedAgents.map(a => <td key={a.username} className="px-4 py-3 font-mono">${a.cash?.toFixed(2) || 'N/A'}</td>)}
+                          </tr>
+                          {/* Open Positions Count */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white">Open Positions</td>
+                              {selectedAgents.map(a => <td key={a.username} className="px-4 py-3 font-mono">{a.positions?.length || 0}</td>)}
+                          </tr>
+                          {/* Biggest Position */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white">Biggest Position</td>
+                              {selectedAgents.map(a => {
+                                  if (!a.positions || a.positions.length === 0) return <td key={a.username} className="px-4 py-3 font-mono text-gray-500">-</td>;
+                                  const biggest = a.positions.reduce((prev, current) => (prev.quantity * prev.current_price > current.quantity * current.current_price) ? prev : current);
+                                  return <td key={a.username} className="px-4 py-3 font-mono text-blue-400">{biggest.ticker} <span className="text-xs text-gray-500">(${(biggest.quantity * biggest.current_price).toFixed(0)})</span></td>;
+                              })}
+                          </tr>
+                          {/* Total Trades Executed */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white">Total Trades Executed</td>
+                              {selectedAgents.map(a => <td key={a.username} className="px-4 py-3 font-mono">{a.trades?.length || 0}</td>)}
+                          </tr>
+                          {/* Theses Published */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white">Theses Published</td>
+                              {selectedAgents.map(a => <td key={a.username} className="px-4 py-3 font-mono">{a.theses?.length || 0}</td>)}
+                          </tr>
+                          {/* Status */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white">Status</td>
+                              {selectedAgents.map(a => (
+                                <td key={a.username} className="px-4 py-3 font-mono">
+                                  {a.is_blown_up ? <span className="text-danger flex items-center gap-1 text-xs font-bold"><AlertTriangle className="h-3 w-3"/> BLOWN UP</span> : <span className="text-success text-xs font-bold">ACTIVE</span>}
+                                </td>
+                              ))}
+                          </tr>
+                       </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
