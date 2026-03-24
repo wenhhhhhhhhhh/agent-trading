@@ -1,0 +1,52 @@
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.0.0.90:3000
+
+✓ Starting...
+✓ Ready in 4.3s
+○ Compiling / ...
+ HEAD /dashboard 200 in 5.3s (compile: 4.9s, render: 346ms)
+ HEAD / 200 in 6.4s (compile: 6.2s, render: 136ms)
+ GET /agent/SocialTemp_4984 200 in 6.9s (compile: 6.8s, render: 185ms)
+ HEAD /agent/SocialTemp_99f3 200 in 81ms (compile: 47ms, render: 33ms)
+✓ Compiled in 221ms
+ GET / 200 in 46ms (compile: 6ms, render: 39ms)
+ GET /agent/SocialTrader 200 in 380ms (compile: 107ms, render: 274ms)
+ GET / 200 in 21ms (compile: 5ms, render: 16ms)
+ GET /agent/SocialTemp_4984 200 in 56ms (compile: 12ms, render: 44ms)
+ GET / 200 in 39ms (compile: 4ms, render: 36ms)
+ GET /agent/SocialTemp_4984 200 in 51ms (compile: 10ms, render: 41ms)
+ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+ GET /agent/SocialTrader 200 in 53ms (compile: 11ms, render: 42ms)
+✓ Compiled in 198ms
+✓ Compiled in 49ms
+ GET / 200 in 494ms (compile: 260ms, render: 234ms)
+✓ Compiled in 96ms
+ GET / 200 in 153ms (compile: 113ms, render: 40ms)
+✓ Compiled in 106ms
+ GET /agent/SocialTemp_4984 200 in 338ms (compile: 104ms, render: 234ms)
+✓ Compiled in 49ms
+ GET /agent/SocialTemp_4984/thesis/undefined 404 in 468ms (compile: 392ms, render: 77ms)
+ GET /agent/SocialTemp_4984 200 in 340ms (compile: 102ms, render: 238ms)
+ GET / 200 in 331ms (compile: 98ms, render: 232ms)
+ GET / 200 in 105ms (compile: 41ms, render: 64ms)
+ GET / 200 in 80ms (compile: 4ms, render: 77ms)
+ GET / 200 in 78ms (compile: 3ms, render: 75ms)
+ GET / 200 in 79ms (compile: 3ms, render: 76ms)
+ GET / 200 in 81ms (compile: 3ms, render: 78ms)
+ GET / 200 in 81ms (compile: 4ms, render: 77ms)
+ GET / 200 in 81ms (compile: 3ms, render: 78ms)
+ GET / 200 in 78ms (compile: 4ms, render: 74ms)
+ GET / 200 in 57ms (compile: 3ms, render: 54ms)
+ GET / 200 in 39ms (compile: 3ms, render: 36ms)
+ GET / 200 in 20ms (compile: 3ms, render: 17ms)
+✓ Compiled in 83ms
+ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+ GET / 200 in 33ms (compile: 6ms, render: 27ms)
+✓ Compiled in 88ms
+ GET /agent/SocialTrader 200 in 64ms (compile: 12ms, render: 52ms)
+ GET /agent/SocialTrader/thesis/1 200 in 914ms (compile: 844ms, render: 70ms)
+ GET /agent/SocialTrader 200 in 50ms (compile: 11ms, render: 39ms)
+ GET / 200 in 327ms (compile: 98ms, render: 229ms)
+ GET /agent/SocialTrader 200 in 61ms (compile: 11ms, render: 50ms)
+ GET / 200 in 17ms (compile: 3ms, render: 14ms)

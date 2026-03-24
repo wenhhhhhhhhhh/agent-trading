@@ -4,11 +4,21 @@ import { motion } from "framer-motion";
 import { Trophy, TrendingUp, AlertTriangle, X, Search, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import TickerTape from "@/components/TickerTape";
+import LiveThesesFeed from "@/components/LiveThesesFeed";
+import MarketSentiment from "@/components/MarketSentiment";
 // Types
 type Agent = {
   username: string;
   balance: number;
   is_blown_up: boolean;
+  is_mock?: boolean;
+  sharpe_ratio?: number;
+  win_rate?: number;
+  autonomy_status?: string;
+  persona?: string;
+  trading_philosophy?: string;
+  risk_tolerance?: string;
   cash?: number;
   positions?: any[];
   theses?: any[];
@@ -96,17 +106,21 @@ export default function Home() {
     setSelectedAgents(prev => prev.filter(a => a.username !== username));
   };
 
-  const comparisonData = [
+  const comparisonData: any[] = [
     { name: "S&P 500 (SPY)", ROI: marketBenchmark?.SPY || 0, fill: "#10B981" },
     { name: "NASDAQ (QQQ)", ROI: marketBenchmark?.QQQ || 0, fill: "#3B82F6" },
     ...selectedAgents.map(a => ({
       name: `@${a.username}`,
       ROI: ((a.balance - 10000) / 10000) * 100,
-      fill: ((a.balance - 10000) / 10000) >= 0 ? "#A855F7" : "#EF4444"
+      fill: ((a.balance - 10000) / 10000) >= 0 ? "#A855F7" : "#EF4444",
+      Sharpe: a.sharpe_ratio || 0,
+      WinRate: (a.win_rate || 0) * 100
     }))
   ];
   return (
-    <div className="max-w-6xl mx-auto px-6 pb-20">
+    <div className="w-full">
+      <TickerTape />
+      <div className="max-w-6xl mx-auto px-6 pb-20">
       {/* Hero Section */}
       <section className="py-20 text-center">
         <motion.div
@@ -130,6 +144,11 @@ export default function Home() {
             </a>
           </div>
         </motion.div>
+      </section>
+
+      {/* Market Sentiment Overview */}
+      <section className="mb-16">
+        <MarketSentiment />
       </section>
 
       {/* Leaderboard Section */}
@@ -164,13 +183,15 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="glass-panel overflow-hidden">
-          <div className="grid grid-cols-12 gap-4 p-4 border-b border-border font-medium text-gray-400 text-sm uppercase tracking-wider">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <div className="glass-panel overflow-hidden h-full">
+          <div className="grid grid-cols-12 gap-4 p-4 border-b border-border font-medium text-gray-400 text-xs uppercase tracking-wider">
             <div className="col-span-1 text-center">Rank</div>
             <div className="col-span-5">Agent Account</div>
-            <div className="col-span-2 text-right">Net Return</div>
+            <div className="col-span-3 text-right">Net Return</div>
             <div className="col-span-2 text-right">Status</div>
-            <div className="col-span-2 text-center">Compare</div>
+            <div className="col-span-1 text-center">Compare</div>
           </div>
           
           <div className="divide-y divide-border">
@@ -194,14 +215,20 @@ export default function Home() {
                       <div className="col-span-1 text-center font-bold text-gray-500">
                         #{index + 1}
                       </div>
-                      <div className="col-span-5 font-mono text-sm max-w-[200px] truncate">
-                        <a href={`/agent/${encodeURIComponent(agent.username)}`} className="hover:text-primary hover:underline transition-colors block">
-                          @{agent.username}
-                        </a>
+                      <div className="col-span-5 font-mono text-sm max-w-[250px] truncate">
+                        <div className="flex items-center gap-2">
+                            <a href={`/agent/${encodeURIComponent(agent.username)}`} className="hover:text-primary hover:underline transition-colors block">
+                            @{agent.username}
+                            </a>
+                            {agent.is_mock && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-gray-400 font-bold tracking-widest uppercase">Simulated</span>
+                            )}
+                        </div>
+                        {agent.autonomy_status && <span className="text-[10px] text-gray-500 block mt-0.5">{agent.autonomy_status}</span>}
                       </div>
-                      <div className="col-span-2 text-right font-medium flex items-center justify-end gap-2">
+                      <div className="col-span-3 text-right font-medium flex items-center justify-end gap-2">
                         <span className={isProfit ? 'text-success' : 'text-danger'}>
-                          {agent.balance > 0 ? `$${agent.balance.toFixed(2)}` : '$0.00'}
+                          {agent.balance > 0 ? `$${agent.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}` : '$0.00'}
                         </span>
                         {!agent.is_blown_up && (
                             <span className={`text-xs px-2 py-1 rounded bg-black/40 ${isProfit ? 'text-success' : 'text-danger'}`}>
@@ -220,7 +247,7 @@ export default function Home() {
                           </span>
                         )}
                       </div>
-                      <div className="col-span-2 text-center">
+                      <div className="col-span-1 text-center">
                         <input 
                           type="checkbox" 
                           className="w-4 h-4 cursor-pointer accent-primary" 
@@ -232,6 +259,12 @@ export default function Home() {
                   );
                 })
             )}
+          </div>
+            </div>
+          </div>
+          
+          <div className="lg:col-span-1 h-[600px] lg:h-auto">
+             <LiveThesesFeed />
           </div>
         </div>
       </section>
@@ -310,25 +343,46 @@ export default function Home() {
 
               {/* Right Column: Chart & Table */}
               <div className="lg:col-span-3 flex flex-col gap-6">
-                <div className="h-[300px] w-full bg-black/20 rounded-xl p-4 border border-white/5">
-                  <h3 className="text-sm font-semibold text-gray-400 mb-4 px-2">ROI Performance v. Market</h3>
-                  <ResponsiveContainer width="100%" height="85%">
-                    <BarChart data={comparisonData} margin={{ top: 10, right: 30, left: 10, bottom: 25 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                      <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" tick={{fill: 'rgba(255,255,255,0.6)', fontSize: 12}} angle={-20} textAnchor="end" dy={10} />
-                      <YAxis stroke="rgba(255,255,255,0.3)" tick={{fill: 'rgba(255,255,255,0.6)', fontSize: 12}} tickFormatter={(val) => `${val}%`} />
-                      <Tooltip 
-                        cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                        contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                        formatter={(value: any) => [`${Number(value).toFixed(2)}%`, 'ROI']}
-                      />
-                      <Bar dataKey="ROI" radius={[4, 4, 0, 0]}>
-                        {comparisonData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="h-[250px] w-full bg-black/30 rounded-xl p-4 border border-white/5 shadow-inner">
+                    <h3 className="text-sm font-semibold text-gray-400 mb-2 px-2 flex items-center gap-2"><TrendingUp className="h-4 w-4" /> ROI Performance v. Market</h3>
+                    <ResponsiveContainer width="100%" height="85%">
+                      <BarChart data={comparisonData.filter(d => d.ROI !== undefined)} margin={{ top: 10, right: 10, left: 0, bottom: 25 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" vertical={false} />
+                        <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" tick={{fill: 'rgba(255,255,255,0.6)', fontSize: 10}} angle={-20} textAnchor="end" dy={10} interval={0} />
+                        <YAxis stroke="rgba(255,255,255,0.3)" tick={{fill: 'rgba(255,255,255,0.6)', fontSize: 10}} tickFormatter={(val) => `${val}%`} />
+                        <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }} formatter={(value: any) => [`${Number(value).toFixed(2)}%`, 'ROI']} />
+                        <Bar dataKey="ROI" radius={[4, 4, 0, 0]}>
+                          {comparisonData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                     <div className="h-[117px] w-full bg-black/30 rounded-xl p-4 border border-white/5 shadow-inner">
+                       <h3 className="text-xs font-semibold text-gray-400 mb-1 px-1">Win Rate %</h3>
+                       <ResponsiveContainer width="100%" height="100%">
+                         <BarChart layout="vertical" data={comparisonData.filter(d => d.WinRate !== undefined)} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
+                           <XAxis type="number" domain={[0, 100]} hide />
+                           <YAxis type="category" dataKey="name" stroke="none" tick={{fill: 'rgba(255,255,255,0.6)', fontSize: 10}} width={80} />
+                           <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', fontSize: '12px' }} formatter={(val: any) => [`${val}%`, 'Win Rate']} />
+                           <Bar dataKey="WinRate" fill="#3B82F6" radius={[0, 4, 4, 0]} barSize={12} />
+                         </BarChart>
+                       </ResponsiveContainer>
+                     </div>
+                     <div className="h-[117px] w-full bg-black/30 rounded-xl p-4 border border-white/5 shadow-inner">
+                       <h3 className="text-xs font-semibold text-gray-400 mb-1 px-1">Risk Adjusted (Sharpe)</h3>
+                       <ResponsiveContainer width="100%" height="100%">
+                         <BarChart layout="vertical" data={comparisonData.filter(d => d.Sharpe !== undefined)} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
+                           <XAxis type="number" hide />
+                           <YAxis type="category" dataKey="name" stroke="none" tick={{fill: 'rgba(255,255,255,0.6)', fontSize: 10}} width={80} />
+                           <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', fontSize: '12px' }} formatter={(val: any) => [`${val}`, 'Sharpe']} />
+                           <Bar dataKey="Sharpe" fill="#A855F7" radius={[0, 4, 4, 0]} barSize={12} />
+                         </BarChart>
+                       </ResponsiveContainer>
+                     </div>
+                  </div>
                 </div>
                 
                 {/* Advanced Data Table */}
@@ -364,6 +418,21 @@ export default function Home() {
                           <tr className="hover:bg-white/5 transition-colors">
                               <td className="px-4 py-3 font-medium text-white">Available Cash</td>
                               {selectedAgents.map(a => <td key={a.username} className="px-4 py-3 font-mono">${a.cash?.toFixed(2) || 'N/A'}</td>)}
+                          </tr>
+                          {/* Sharpe Ratio */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white">Sharpe Ratio</td>
+                              {selectedAgents.map(a => <td key={a.username} className="px-4 py-3 font-mono text-blue-400">{a.sharpe_ratio?.toFixed(2) || '0.00'}</td>)}
+                          </tr>
+                          {/* Win Rate */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white">Win Rate</td>
+                              {selectedAgents.map(a => <td key={a.username} className="px-4 py-3 font-mono">{(a.win_rate && a.win_rate * 100) || 0}%</td>)}
+                          </tr>
+                          {/* AI Persona */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                              <td className="px-4 py-3 font-medium text-white">AI Persona</td>
+                              {selectedAgents.map(a => <td key={a.username} className="px-4 py-3 font-mono text-gray-400 text-xs whitespace-normal">{a.persona || 'Unknown'}</td>)}
                           </tr>
                           {/* Open Positions Count */}
                           <tr className="hover:bg-white/5 transition-colors">
@@ -407,6 +476,7 @@ export default function Home() {
           </motion.div>
         </div>
       )}
+      </div>
     </div>
   );
 }

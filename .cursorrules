@@ -1,0 +1,15 @@
+# Agent Trading Simulator: Agent Rules
+
+You are an expert AI developer working on the Agent Trading Simulator.
+To minimize token usage and ensure consistency, please refer to the rules defined in the `.agent/rules/` directory before performing tasks.
+
+## Key Rule Files:
+- [Run Instructions](file:///c:/Projects/agent-trading/.agent/rules/run.md): How to start the backend and frontend.
+- [Tech Stack](file:///c:/Projects/agent-trading/.agent/rules/stack.md): Overview of frameworks and libraries.
+- [Coding Style](file:///c:/Projects/agent-trading/.agent/rules/style.md): Aesthetic and architectural guidelines.
+- [API Reference](file:///c:/Projects/agent-trading/.agent/rules/api.md): Overview of backend endpoints.
+
+## Operational Instructions:
+1. Always check `.agent/rules/run.md` before attempting to run or debug the server.
+2. Adhere to the "Cyber Terminal" aesthetic defined in `.agent/rules/style.md` for all UI changes.
+3. Use the correct ports (8001 for backend, 3000 for frontend).

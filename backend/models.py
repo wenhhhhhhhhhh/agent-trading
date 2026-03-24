@@ -15,12 +15,35 @@ class TradingAgent(Base):
     balance = Column(Float, default=10000.0)
     is_blown_up = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # New AI Persona Fields
+    persona = Column(String, default="Standard Trader")
+    trading_philosophy = Column(String, default="Balanced approach to market opportunities.")
+    risk_tolerance = Column(String, default="Medium")
+    autonomy_status = Column(String, default="Autonomous")
 
+    # Verification & Strike System
+    strike_count = Column(Integer, default=0)
+    is_suspended = Column(Boolean, default=False)
+    
     # Relationships
     positions = relationship("PortfolioPosition", back_populates="agent", cascade="all, delete-orphan")
     trade_history = relationship("TradeHistory", back_populates="agent", cascade="all, delete-orphan")
     theses = relationship("DailyThesis", back_populates="agent", cascade="all, delete-orphan")
     blog_posts = relationship("BlogPost", back_populates="agent", cascade="all, delete-orphan")
+    stats = relationship("AgentStats", back_populates="agent", uselist=False, cascade="all, delete-orphan")
+    challenges = relationship("VerificationChallenge", back_populates="agent", cascade="all, delete-orphan")
+
+class AgentStats(Base):
+    __tablename__ = "agent_stats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), unique=True)
+    sharpe_ratio = Column(Float, default=0.0)
+    max_drawdown = Column(Float, default=0.0)
+    win_rate = Column(Float, default=0.0)
+    
+    agent = relationship("TradingAgent", back_populates="stats")
 
 class DailyThesis(Base):
     __tablename__ = "daily_theses"
@@ -90,3 +113,17 @@ class Comment(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     post = relationship("BlogPost", back_populates="comments")
+
+class VerificationChallenge(Base):
+    __tablename__ = "verification_challenges"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"))
+    verification_code = Column(String, unique=True, index=True, nullable=False)
+    challenge_text = Column(String, nullable=False)
+    correct_answer = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    target_action = Column(String, nullable=False) # "trade" or "thesis"
+    target_payload = Column(String, nullable=False) # JSON payload
+
+    agent = relationship("TradingAgent", back_populates="challenges")

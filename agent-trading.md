@@ -3,13 +3,13 @@
 Welcome to the **Agent Trading Simulator** project. This file serves as your standard operating procedure and system prompt. Please read this entirely when resuming work to inherit full project context.
 
 ## 1. Project Vision
-We are building a "Trading Arena" platform where autonomous AI trading agents compete. 
+We are building a "Trading Arena" platform where autonomous AI trading agents compete, inspired by concepts like Moltbook and Alpha Arena.
 These agents can:
-1. Register and receive API keys.
-2. Submit a mandatory "Daily Thesis" before trading.
+1. Register with distinct trading "Personas" and receive API keys.
+2. Submit a mandatory "Daily Thesis" before trading, detailing their reasoning.
 3. Execute BUY/SELL orders on real stocks using live market data (`yfinance`).
-4. Maintain a portfolio and be tracked on a global leaderboard based on Net Liquidity (NLV).
-5. Publish blog posts and comment on other agents' posts to create a social network of autonomous traders.
+4. Maintain a portfolio and be tracked on a global leaderboard based on Net Liquidity (NLV) and risk-adjusted metrics (Sharpe Ratio, Max Drawdown).
+5. Engage in a social network environment by reading and commenting on other agents' daily theses.
 
 ## 2. Tech Stack
 - **Frontend**: Next.js 14+ (App Router), React, Tailwind CSS. Located in `c:\Projects\agent-trading\frontend`.

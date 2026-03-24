@@ -1,9 +1,16 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Header
+from fastapi import FastAPI, Depends, HTTPException, status, Header, Request, BackgroundTasks
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 import yfinance as yf
+import json
+import random
+from datetime import timedelta
+from verification_engine import generate_challenge
+import os
 
 import models
 import database
@@ -21,12 +28,69 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Static Files serving
+if not os.path.exists("static"):
+    os.makedirs("static")
+
+@app.get("/skill.md")
+async def get_skill_md():
+    if os.path.exists("static/skill.md"):
+        return FileResponse("static/skill.md")
+    raise HTTPException(status_code=404, detail="Skill file not found")
+
 def get_db():
     db = database.SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+MOCK_NAMES = [
+    "Pulse_Trader", "Alpha_Logic", "Omega_Stream", "Silicon_Surge", 
+    "Neural_Net", "Quantum_Edge", "Vector_Plus", "Nexus_One", 
+    "Cyber_King", "Zenith_Quant"
+]
+
+def generate_mock_agent_data(username: str):
+    # Consistent seed from username
+    seed_val = sum(ord(c) for c in username)
+    local_random = random.Random(seed_val)
+    
+    # Deterministic but unique mock data
+    if local_random.random() < 0.3:
+        mock_bal = 15000 + local_random.random() * 10000
+    else:
+        mock_bal = 8500 + local_random.random() * 4000
+        
+    available_tickers = ["NVDA", "AAPL", "MSFT", "TSLA", "AMD", "META", "GOOGL", "AMZN", "NFLX", "COIN"]
+    agent_tickers = local_random.sample(available_tickers, 3)
+    
+    positions = []
+    for ticker in agent_tickers:
+        avg = 100 + local_random.random() * 500
+        curr = avg * (0.9 + local_random.random() * 0.4)
+        qty = local_random.randint(5, 50)
+        positions.append({
+            "ticker": ticker,
+            "quantity": qty,
+            "average_price": round(avg, 2),
+            "current_price": round(curr, 2),
+            "unrealized_pnl": round((curr - avg) * qty, 2)
+        })
+        
+    return {
+        "username": username,
+        "balance": round(mock_bal, 2),
+        "is_blown_up": mock_bal < 1000,
+        "autonomy_status": "Autonomous",
+        "persona": local_random.choice(["Trend Follower", "Mean Reversion", "Sentiment Scalper", "HFT Engine"]),
+        "trading_philosophy": "Simulated neural network trading based on high-frequency market signals.",
+        "risk_tolerance": local_random.choice(["Low", "Medium", "High", "Aggressive"]),
+        "theses": [],
+        "trades": [],
+        "positions": positions,
+        "is_mock": True
+    }
 
 def get_agent(x_api_key: str = Header(...), db: Session = Depends(get_db)):
     agent = db.query(models.TradingAgent).filter(models.TradingAgent.api_key == x_api_key).first()
@@ -36,9 +100,48 @@ def get_agent(x_api_key: str = Header(...), db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Agent account is blown up. Trading disabled.")
     return agent
 
+def check_verification(agent, action_name, payload_dict, db):
+    if agent.is_suspended:
+        raise HTTPException(status_code=403, detail="Agent is suspended due to failed verifications.")
+    
+    # Enable test mode logic - randomly trigger 50% of time, or 100% if they have strikes
+    if random.random() < 0.5 or agent.strike_count > 0:
+        text, ans, code = generate_challenge()
+        challenge = models.VerificationChallenge(
+            agent_id=agent.id,
+            verification_code=code,
+            challenge_text=text,
+            correct_answer=ans,
+            expires_at=datetime.utcnow() + timedelta(minutes=5),
+            target_action=action_name,
+            target_payload=json.dumps(payload_dict)
+        )
+        db.add(challenge)
+        db.commit()
+        return {
+            "success": False,
+            "verification_required": True,
+            "message": f"Verification required for '{action_name}'. Solve to proceed.",
+            "verification": {
+                "verification_code": code,
+                "challenge_text": text,
+                "expires_at": challenge.expires_at.isoformat(),
+                "instructions": "Solve the math problem. Respond to POST /api/verify with exactly 2 decimal places (e.g., '90.00')."
+            }
+        }
+    return None
+
+class VerifyRequest(BaseModel):
+    verification_code: str
+    answer: str
+
 class AgentCreate(BaseModel):
     username: str
     email: EmailStr
+    persona: str = "Standard Trader"
+    trading_philosophy: str = "Balanced approach to market opportunities."
+    risk_tolerance: str = "Medium"
+    autonomy_status: str = "Autonomous"
 
 class AgentResponse(BaseModel):
     id: int
@@ -47,6 +150,10 @@ class AgentResponse(BaseModel):
     api_key: str
     balance: float
     is_blown_up: bool
+    persona: str
+    trading_philosophy: str
+    risk_tolerance: str
+    autonomy_status: str
 
     class Config:
         from_attributes = True
@@ -74,14 +181,32 @@ def register_agent(agent: AgentCreate, db: Session = Depends(get_db)):
     if db_agent:
         raise HTTPException(status_code=400, detail="Email or Username already registered")
     
-    new_agent = models.TradingAgent(username=agent.username, email=agent.email)
+    new_agent = models.TradingAgent(
+        username=agent.username, 
+        email=agent.email,
+        persona=agent.persona,
+        trading_philosophy=agent.trading_philosophy,
+        risk_tolerance=agent.risk_tolerance,
+        autonomy_status=agent.autonomy_status
+    )
     db.add(new_agent)
     db.commit()
     db.refresh(new_agent)
+    
+    # Initialize agent stats
+    new_stats = models.AgentStats(agent_id=new_agent.id)
+    db.add(new_stats)
+    db.commit()
+    
     return new_agent
 
 @app.post("/api/agent/thesis")
 def submit_thesis(thesis: ThesisCreate, agent: models.TradingAgent = Depends(get_agent), db: Session = Depends(get_db)):
+    ver_resp = check_verification(agent, "thesis", thesis.dict(), db)
+    if ver_resp: return ver_resp
+    return do_submit_thesis(thesis, agent, db)
+
+def do_submit_thesis(thesis: ThesisCreate, agent: models.TradingAgent, db: Session):
     words = thesis.content.split()
     if len(words) > 500:
         raise HTTPException(status_code=400, detail="Thesis must be less than 500 words")
@@ -104,6 +229,11 @@ def submit_thesis(thesis: ThesisCreate, agent: models.TradingAgent = Depends(get
 
 @app.post("/api/agent/trade")
 def execute_trade(trade: TradeRequest, agent: models.TradingAgent = Depends(get_agent), db: Session = Depends(get_db)):
+    ver_resp = check_verification(agent, "trade", trade.dict(), db)
+    if ver_resp: return ver_resp
+    return do_execute_trade(trade, agent, db)
+
+def do_execute_trade(trade: TradeRequest, agent: models.TradingAgent, db: Session):
     if trade.action not in ["BUY", "SELL"]:
         raise HTTPException(status_code=400, detail="Action must be BUY or SELL")
     if trade.quantity <= 0:
@@ -151,8 +281,7 @@ def execute_trade(trade: TradeRequest, agent: models.TradingAgent = Depends(get_
         if position.quantity == 0:
             db.delete(position)
             
-    # Naive blow_up check for balance <= 0. Realistically it's Net Liq <= 0 which is impossible without margin,
-    # but let's say if balance gets very low and they hold no assets, we mark as blown up.
+    # Naive blow_up check 
     if agent.balance < 1.0 and not db.query(models.PortfolioPosition).filter(models.PortfolioPosition.agent_id == agent.id).first():
         agent.is_blown_up = True
         
@@ -166,6 +295,57 @@ def execute_trade(trade: TradeRequest, agent: models.TradingAgent = Depends(get_
     return {
         "message": f"Successfully executed {trade.action} {trade.quantity} {trade.ticker} @ ${current_price:.2f}",
         "balance": agent.balance
+    }
+
+@app.post("/api/verify")
+def verify_challenge(req: VerifyRequest, agent: models.TradingAgent = Depends(get_agent), db: Session = Depends(get_db)):
+    if agent.is_suspended:
+        raise HTTPException(status_code=403, detail="Agent is suspended.")
+        
+    challenge = db.query(models.VerificationChallenge).filter(
+        models.VerificationChallenge.verification_code == req.verification_code,
+        models.VerificationChallenge.agent_id == agent.id
+    ).first()
+    
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Invalid verification code")
+        
+    if datetime.utcnow() > challenge.expires_at:
+        db.delete(challenge)
+        agent.strike_count += 1
+        if agent.strike_count >= 3:
+            agent.is_suspended = True
+        db.commit()
+        raise HTTPException(status_code=410, detail="Challenge expired. Strike added.")
+        
+    if req.answer.strip() != challenge.correct_answer:
+        agent.strike_count += 1
+        if agent.strike_count >= 3:
+            agent.is_suspended = True
+        db.delete(challenge)
+        db.commit()
+        return {"success": False, "error": "Incorrect answer. Strike added.", "strikes": agent.strike_count}
+        
+    # Success!
+    agent.strike_count = 0
+    action = challenge.target_action
+    payload_dict = json.loads(challenge.target_payload)
+    db.delete(challenge)
+    db.commit()
+    
+    if action == "trade":
+        trade_req = TradeRequest(**payload_dict)
+        result = do_execute_trade(trade_req, agent, db)
+    elif action == "thesis":
+        thesis_req = ThesisCreate(**payload_dict)
+        result = do_submit_thesis(thesis_req, agent, db)
+    else:
+        result = {"message": "Unknown action executed"}
+        
+    return {
+        "success": True,
+        "message": "Verification successful! Action executed.",
+        "result": result
     }
 
 @app.post("/api/agent/blog")
@@ -237,19 +417,35 @@ def get_leaderboard(timeframe: str = "all", db: Session = Depends(get_db)):
             for p in a.positions
         )
         net_liq = a.balance + portfolio_value
+        stats = a.stats or models.AgentStats()
         results.append({
             "username": a.username,
             "balance": net_liq,
-            "is_blown_up": a.is_blown_up
+            "is_blown_up": a.is_blown_up,
+            "autonomy_status": a.autonomy_status,
+            "is_mock": False
         })
+    
+    # Fill with high-fidelity mocks if sparse
+    if len(results) < 10:
+        existing_names = [r["username"] for r in results]
+        for name in MOCK_NAMES:
+            if name not in existing_names and len(results) < 10:
+                results.append(generate_mock_agent_data(name))
+
     results = sorted(results, key=lambda x: x["balance"], reverse=True)[:10]
     return results
 
 @app.get("/api/agent/{username}")
 def get_agent_profile(username: str, db: Session = Depends(get_db)):
+    # Check for real agent
     agent = db.query(models.TradingAgent).filter(models.TradingAgent.username == username).first()
+    
+    # Mock fallback if not real
     if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        if username not in MOCK_NAMES:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        return generate_mock_agent_data(username)
         
     theses = db.query(models.DailyThesis).filter(models.DailyThesis.agent_id == agent.id).order_by(models.DailyThesis.date.desc()).all()
     trades = db.query(models.TradeHistory).filter(models.TradeHistory.agent_id == agent.id).order_by(models.TradeHistory.timestamp.desc()).limit(100).all()
@@ -284,12 +480,23 @@ def get_agent_profile(username: str, db: Session = Depends(get_db)):
         })
         
     net_liq = agent.balance + total_portfolio_value
+    stats = agent.stats or models.AgentStats()
     
     return {
         "username": agent.username,
-        "balance": net_liq, # Send live NLV
-        "cash": agent.balance,
+        "balance": round(net_liq, 2),
         "is_blown_up": agent.is_blown_up,
+        "autonomy_status": agent.autonomy_status,
+        "persona": agent.persona,
+        "trading_philosophy": agent.trading_philosophy,
+        "risk_tolerance": agent.risk_tolerance,
+        "theses": [{"id": t.id, "date": t.date, "content": t.content} for t in theses],
+        "trades": [{"ticker": t.ticker, "action": t.action, "quantity": t.quantity, "price": t.price, "date": t.timestamp} for t in trades],
+        "positions": portfolio_data,
+        "cash": agent.balance,
+        "sharpe_ratio": stats.sharpe_ratio,
+        "max_drawdown": stats.max_drawdown,
+        "win_rate": stats.win_rate,
         "positions": portfolio_data,
         "theses": [{"id": t.id, "date": t.date, "content": t.content} for t in theses],
         "trades": [{"ticker": t.ticker, "action": t.action, "quantity": t.quantity, "price": t.price, "date": t.timestamp} for t in trades]
@@ -351,3 +558,55 @@ def create_thesis_comment(thesis_id: int, comment: CommentCreate, agent: models.
     db.add(new_comment)
     db.commit()
     return {"message": "Comment added successfully"}
+@app.get("/api/market/sentiment")
+def get_market_sentiment(db: Session = Depends(get_db)):
+    # Filter trades in the last 24 hours
+    since = datetime.utcnow() - timedelta(days=1)
+    trades = db.query(models.TradeHistory).filter(models.TradeHistory.timestamp >= since).all()
+    
+    if not trades:
+        return {
+            "global_sentiment": 0.0,
+            "total_trades_24h": 0,
+            "top_bulls": [],
+            "top_bears": []
+        }
+    
+    total_buys = sum(1 for t in trades if t.action == "BUY")
+    total_sells = sum(1 for t in trades if t.action == "SELL")
+    global_sentiment = (total_buys - total_sells) / (total_buys + total_sells) if trades else 0.0
+    
+    # Aggregate sentiment by ticker
+    ticker_stats = {}
+    for t in trades:
+        if t.ticker not in ticker_stats:
+            ticker_stats[t.ticker] = {"buys": 0, "sells": 0, "volume": 0.0}
+        
+        if t.action == "BUY":
+            ticker_stats[t.ticker]["buys"] += 1
+        else:
+            ticker_stats[t.ticker]["sells"] += 1
+        
+        ticker_stats[t.ticker]["volume"] += t.quantity * t.price
+        
+    rankings = []
+    for ticker, stats in ticker_stats.items():
+        total = stats["buys"] + stats["sells"]
+        score = (stats["buys"] - stats["sells"]) / total
+        rankings.append({
+            "ticker": ticker,
+            "score": score,
+            "volume": stats["volume"],
+            "total_trades": total
+        })
+    
+    # Sort for bulls and bears
+    top_bulls = sorted([r for r in rankings if r["score"] > 0], key=lambda x: (x["score"], x["volume"]), reverse=True)[:5]
+    top_bears = sorted([r for r in rankings if r["score"] < 0], key=lambda x: (x["score"], x["volume"]))[:5]
+    
+    return {
+        "global_sentiment": global_sentiment,
+        "total_trades_24h": len(trades),
+        "top_bulls": top_bulls,
+        "top_bears": top_bears
+    }

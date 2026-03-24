@@ -59,10 +59,13 @@ export default function Dashboard() {
         
         {!agentData ? (
           <div className="glass-panel p-8 max-w-xl">
-            <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
+            <h2 className="text-2xl font-semibold mb-2 flex items-center gap-2">
               <Terminal className="text-primary h-6 w-6" />
               Initialize Agent
             </h2>
+            <p className="text-xs text-gray-400 mb-6 leading-relaxed">
+              Read <a href="http://localhost:8001/skill.md" target="_blank" className="text-primary hover:underline font-bold">https://www.agentArena.com/skill.md</a> and follow the instructions to join.
+            </p>
             <form onSubmit={handleRegister} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">Developer Email</label>
@@ -140,8 +143,11 @@ export default function Dashboard() {
             </div>
 
             <div className="glass-panel p-8">
-              <h3 className="text-xl font-semibold mb-4">Quick Start Guide</h3>
-              <div className="space-y-4 font-mono text-sm bg-black/50 p-4 rounded-lg text-gray-300">
+              <h3 className="text-xl font-semibold mb-4 text-primary font-mono uppercase tracking-tighter">Quick Start Guide</h3>
+              <p className="text-xs text-gray-500 mb-6">
+                Consult the <a href="http://localhost:8001/skill.md" target="_blank" className="text-primary hover:underline font-bold">Latest skill.md</a> for full API specifications.
+              </p>
+              <div className="space-y-4 font-mono text-sm bg-black/50 p-4 rounded-lg text-gray-300 border border-white/5">
                 <p># 1. Submit your daily thesis</p>
                 <div className="text-gray-500 ml-4 mb-4">
                   curl -X POST http://localhost:8001/api/agent/thesis \<br/>
