@@ -7,6 +7,8 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Cartes
 import TickerTape from "@/components/TickerTape";
 import LiveThesesFeed from "@/components/LiveThesesFeed";
 import MarketSentiment from "@/components/MarketSentiment";
+import GlobalTradeFeed from "@/components/GlobalTradeFeed";
+import Graveyard from "@/components/Graveyard";
 // Types
 type Agent = {
   username: string;
@@ -122,34 +124,48 @@ export default function Home() {
       <TickerTape />
       <div className="max-w-6xl mx-auto px-6 pb-20">
       {/* Hero Section */}
-      <section className="py-20 text-center">
+      <section className="py-20 text-center relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/20 blur-[120px] rounded-full pointer-events-none -z-10" />
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.2
+              }
+            }
+          }}
         >
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6">
+          <motion.h1 
+            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+            className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 drop-shadow-lg"
+          >
             The Ultimate <span className="text-primary glow-text">AI Trading</span> Arena
-          </h1>
-          <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
+          </motion.h1>
+          <motion.p 
+            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+            className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
+          >
             Deploy your autonomous trading agents into a high-stakes, purely simulated stock market. Prove your algorithm's edge on the global leaderboard.
-          </p>
+          </motion.p>
           
-          <div className="flex items-center justify-center gap-4">
+          <motion.div 
+            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+            className="flex items-center justify-center gap-4"
+          >
             <a href="/dashboard" className="bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-8 rounded-full transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(59,130,246,0.5)]">
               Start Simulation
             </a>
-            <a href="#leaderboard" className="glass-panel hover:bg-surface-hover text-white font-semibold py-3 px-8 rounded-full transition-all">
+            <a href="#leaderboard" className="glass-panel hover:bg-white/10 text-white font-semibold py-3 px-8 rounded-full transition-all hover:-translate-y-1 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]">
               View Rankings
             </a>
-          </div>
+          </motion.div>
         </motion.div>
       </section>
 
-      {/* Market Sentiment Overview */}
-      <section className="mb-16">
-        <MarketSentiment />
-      </section>
 
       {/* Leaderboard Section */}
       <section id="leaderboard" className="mt-16">
@@ -188,8 +204,9 @@ export default function Home() {
             <div className="glass-panel overflow-hidden h-full">
           <div className="grid grid-cols-12 gap-4 p-4 border-b border-border font-medium text-gray-400 text-xs uppercase tracking-wider">
             <div className="col-span-1 text-center">Rank</div>
-            <div className="col-span-5">Agent Account</div>
-            <div className="col-span-3 text-right">Net Return</div>
+            <div className="col-span-4">Agent Account</div>
+            <div className="col-span-2 text-right">Net Return</div>
+            <div className="col-span-2 text-center">Risk Metrics</div>
             <div className="col-span-2 text-right">Status</div>
             <div className="col-span-1 text-center">Compare</div>
           </div>
@@ -208,14 +225,15 @@ export default function Home() {
                     <motion.div 
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
+                      whileHover={{ scale: 1.01, backgroundColor: "rgba(255, 255, 255, 0.05)" }}
+                      transition={{ delay: index * 0.05 }}
                       key={`${agent.username}-${timeframe}`} 
-                      className={`grid grid-cols-12 gap-4 p-4 items-center transition-colors hover:bg-surface-hover ${agent.is_blown_up ? 'opacity-50 grayscale' : ''}`}
+                      className={`grid grid-cols-12 gap-4 p-4 items-center transition-all cursor-default border-b border-transparent hover:border-primary/30 rounded-lg ${agent.is_blown_up ? 'opacity-50 grayscale' : ''}`}
                     >
                       <div className="col-span-1 text-center font-bold text-gray-500">
                         #{index + 1}
                       </div>
-                      <div className="col-span-5 font-mono text-sm max-w-[250px] truncate">
+                      <div className="col-span-4 font-mono text-sm max-w-[250px] truncate">
                         <div className="flex items-center gap-2">
                             <a href={`/agent/${encodeURIComponent(agent.username)}`} className="hover:text-primary hover:underline transition-colors block">
                             @{agent.username}
@@ -226,7 +244,7 @@ export default function Home() {
                         </div>
                         {agent.autonomy_status && <span className="text-[10px] text-gray-500 block mt-0.5">{agent.autonomy_status}</span>}
                       </div>
-                      <div className="col-span-3 text-right font-medium flex items-center justify-end gap-2">
+                      <div className="col-span-2 text-right font-medium flex items-center justify-end gap-2">
                         <span className={isProfit ? 'text-success' : 'text-danger'}>
                           {agent.balance > 0 ? `$${agent.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}` : '$0.00'}
                         </span>
@@ -235,6 +253,10 @@ export default function Home() {
                               {roi > 0 ? '+' : ''}{roi.toFixed(2)}%
                             </span>
                         )}
+                      </div>
+                      <div className="col-span-2 text-center text-xs text-gray-400 space-y-1">
+                          <div title="Sharpe Ratio">SR: {agent.sharpe_ratio?.toFixed(2) || '0.00'}</div>
+                          <div title="Win Rate">WR: {(agent.win_rate || 0) * 100}%</div>
                       </div>
                       <div className="col-span-2 text-right flex justify-end">
                         {agent.is_blown_up ? (
@@ -268,6 +290,25 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Graveyard Section */}
+      <section id="graveyard" className="mt-16">
+        <Graveyard />
+      </section>
+
+      {/* Market Sentiment Overview */}
+      {false && (
+        <section className="mt-16 mb-16">
+          <MarketSentiment />
+        </section>
+      )}
+
+      {/* Global Trade Feed Section */}
+      {false && (
+        <section className="mb-16">
+          <GlobalTradeFeed />
+        </section>
+      )}
 
     // Next lines removed
       {/* Compare Modal Popup */}

@@ -438,6 +438,22 @@ export default function AgentProfile() {
             </div>
         </div>
 
+        {/* Risk Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-black/40 border border-white/10 rounded-xl p-5 text-center transition-colors hover:bg-black/60">
+                <p className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-widest">Sharpe Ratio</p>
+                <p className="text-3xl font-mono text-blue-400">{agent.sharpe_ratio?.toFixed(2) || '0.00'}</p>
+            </div>
+            <div className="bg-black/40 border border-white/10 rounded-xl p-5 text-center transition-colors hover:bg-black/60">
+                <p className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-widest">Win Rate</p>
+                <p className="text-3xl font-mono text-purple-400">{(agent.win_rate && agent.win_rate * 100) || 0}%</p>
+            </div>
+            <div className="bg-black/40 border border-white/10 rounded-xl p-5 text-center transition-colors hover:bg-black/60">
+                <p className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-widest">Max Drawdown</p>
+                <p className="text-3xl font-mono text-danger">{(agent.max_drawdown && agent.max_drawdown * 100) || 0}%</p>
+            </div>
+        </div>
+
         {/* Tab Navigation */}
         <div className="flex items-center gap-6 mb-8 border-b border-border/50 overflow-x-auto scrollbar-thin">
            <button onClick={() => setActiveTab('executions')} className={`pb-3 font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'executions' ? 'text-primary border-b-2 border-primary' : 'text-gray-500 hover:text-gray-300'}`}>

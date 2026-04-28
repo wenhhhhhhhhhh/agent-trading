@@ -13,32 +13,65 @@ export default function TickerProfile() {
 
   const [loading, setLoading] = useState(true);
   const [tickerData, setTickerData] = useState<any>(null);
+  const [chartHistory, setChartHistory] = useState<any[]>([]);
+  const [timeframe, setTimeframe] = useState("1D");
+  const [basePrice, setBasePrice] = useState(0);
 
+  // Generate chart data based on timeframe (runs independently of page load)
+  const generateChartData = (price: number) => {
+    let dataPoints = 40;
+    let timeOffsetMs = 0;
+    let volatilityMultiplier = 0.02;
+
+    switch(timeframe) {
+        case "5D": dataPoints = 40; timeOffsetMs = 5 * 24 * 60 * 60 * 1000 / dataPoints; volatilityMultiplier = 0.04; break;
+        case "1M": dataPoints = 40; timeOffsetMs = 30 * 24 * 60 * 60 * 1000 / dataPoints; volatilityMultiplier = 0.06; break;
+        case "1Y": dataPoints = 40; timeOffsetMs = 365 * 24 * 60 * 60 * 1000 / dataPoints; volatilityMultiplier = 0.15; break;
+        case "5Y": dataPoints = 40; timeOffsetMs = 5 * 365 * 24 * 60 * 60 * 1000 / dataPoints; volatilityMultiplier = 0.3; break;
+        case "MAX": dataPoints = 40; timeOffsetMs = 20 * 365 * 24 * 60 * 60 * 1000 / dataPoints; volatilityMultiplier = 0.5; break;
+        case "1D":
+        default:
+           dataPoints = 40; timeOffsetMs = 8 * 60 * 60 * 1000 / dataPoints; volatilityMultiplier = 0.02; break; // 8 hours
+    }
+
+    const now = new Date();
+    let currentPrice = price;
+    return Array.from({ length: dataPoints }).map((_, i) => {
+       const timestamp = new Date(now.getTime() - timeOffsetMs * (dataPoints - 1 - i));
+       
+       let formattedTime = "";
+       if (timeframe === "1D") {
+         formattedTime = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+       } else if (timeframe === "5D" || timeframe === "1M") {
+         formattedTime = timestamp.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+       } else {
+         formattedTime = timestamp.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+       }
+
+       const move = (Math.random() - 0.48) * (price * volatilityMultiplier);
+       currentPrice += move;
+       return { time: formattedTime, price: currentPrice };
+    });
+  };
+
+  // Initial page data load (only runs on symbol change)
   useEffect(() => {
-    // In a real app, this would fetch from a backend endpoint like /api/market/ticker/{symbol}
-    // and would fetch agent stats from our DB. For now, we mock the comprehensive response.
-    
+    setLoading(true);
     setTimeout(() => {
-      // Mock Data Generation
-      const basePrice = Math.random() * 500 + 50;
-      let currentPrice = basePrice;
-      const history = Array.from({ length: 40 }).map((_, i) => {
-         const move = (Math.random() - 0.48) * (basePrice * 0.02);
-         currentPrice += move;
-         return {
-            time: `10:${i.toString().padStart(2, '0')}`,
-            price: currentPrice
-         };
-      });
-      
-      const change = currentPrice - basePrice;
-      const percentChange = (change / basePrice) * 100;
-      
-      // Mock Agent Volume
+      const price = Math.random() * 500 + 50;
+      setBasePrice(price);
+
+      let currentPrice = price;
+      const history = generateChartData(price);
+      currentPrice = history[history.length - 1].price;
+
+      const change = currentPrice - price;
+      const percentChange = (change / price) * 100;
+
       const buyCount = Math.floor(Math.random() * 50);
       const sellCount = Math.floor(Math.random() * 30);
       const totalAgents = buyCount + sellCount;
-      const isHighTraffic = totalAgents > 50; // Threshold for highlighting
+      const isHighTraffic = totalAgents > 50;
 
       setTickerData({
         symbol,
@@ -48,7 +81,6 @@ export default function TickerProfile() {
         currentPrice,
         change,
         percentChange,
-        history,
         agentStats: {
            totalAgentsTradedToday: totalAgents,
            buyOrders: buyCount,
@@ -61,9 +93,17 @@ export default function TickerProfile() {
            { id: 3, title: `Market breadth indicators remain favorable for ${symbol}'s industry group.`, source: "Macro Vision", time: "1d ago" },
         ]
       });
+      setChartHistory(history);
       setLoading(false);
-    }, 800);
+    }, 400);
   }, [symbol]);
+
+  // Only regenerate chart when timeframe changes (no full-page reload)
+  useEffect(() => {
+    if (basePrice > 0) {
+      setChartHistory(generateChartData(basePrice));
+    }
+  }, [timeframe]);
 
   if (loading) {
     return (
@@ -121,12 +161,27 @@ export default function TickerProfile() {
                  {agentStats.isHighTraffic && (
                      <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 blur-[50px] rounded-full pointer-events-none" />
                  )}
-                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-6 text-gray-300">
-                    <BarChart2 className="h-5 w-5 text-primary" /> Intraday Price Action
-                 </h3>
+                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-300">
+                       <BarChart2 className="h-5 w-5 text-primary" /> Price Action
+                    </h3>
+                    <div className="flex p-1 glass-panel rounded-lg w-fit">
+                      {(["1D", "5D", "1M", "1Y", "5Y", "MAX"]).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTimeframe(t)}
+                          className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
+                            timeframe === t ? "bg-primary text-white" : "text-gray-400 hover:text-white hover:bg-white/5"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                 </div>
                  <div className="h-[400px] w-full">
                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={tickerData.history} margin={{ top: 5, right: 0, bottom: 0, left: -20 }}>
+                      <AreaChart data={chartHistory} margin={{ top: 5, right: 0, bottom: 0, left: -20 }}>
                         <defs>
                           <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor={isPositive ? '#10B981' : '#EF4444'} stopOpacity={0.3}/>
@@ -138,8 +193,8 @@ export default function TickerProfile() {
                         <YAxis 
                           stroke="rgba(255,255,255,0.3)" 
                           tick={{fill: 'rgba(255,255,255,0.4)', fontSize: 12}} 
-                          domain={['auto', 'auto']}
-                          tickFormatter={(val) => `$${val.toFixed(2)}`}
+                          domain={[(dataMin: number) => dataMin * 0.98, (dataMax: number) => dataMax * 1.02]}
+                          tickFormatter={(val) => `$${Number(val).toFixed(2)}`}
                         />
                         <Tooltip 
                            contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}

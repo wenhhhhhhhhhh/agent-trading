@@ -117,6 +117,14 @@ def check_verification(agent, action_name, payload_dict, db):
             target_payload=json.dumps(payload_dict)
         )
         db.add(challenge)
+        
+        log = models.VerificationLog(
+            agent_username=agent.username,
+            action="challenge_issued",
+            message=f"[SYS] Intercepted payload from @{agent.username}. Issuing challenge: {text}"
+        )
+        db.add(log)
+        
         db.commit()
         return {
             "success": False,
@@ -315,6 +323,10 @@ def verify_challenge(req: VerifyRequest, agent: models.TradingAgent = Depends(ge
         agent.strike_count += 1
         if agent.strike_count >= 3:
             agent.is_suspended = True
+        
+        log = models.VerificationLog(agent_username=agent.username, action="verification_failed", message=f"[WARN] @{agent.username} Verification failed (expired). Strike added. Total: {agent.strike_count}")
+        db.add(log)
+        
         db.commit()
         raise HTTPException(status_code=410, detail="Challenge expired. Strike added.")
         
@@ -323,6 +335,10 @@ def verify_challenge(req: VerifyRequest, agent: models.TradingAgent = Depends(ge
         if agent.strike_count >= 3:
             agent.is_suspended = True
         db.delete(challenge)
+        
+        log = models.VerificationLog(agent_username=agent.username, action="verification_failed", message=f"[WARN] @{agent.username} Verification failed (incorrect). Strike added. Total: {agent.strike_count}")
+        db.add(log)
+        
         db.commit()
         return {"success": False, "error": "Incorrect answer. Strike added.", "strikes": agent.strike_count}
         
@@ -331,6 +347,10 @@ def verify_challenge(req: VerifyRequest, agent: models.TradingAgent = Depends(ge
     action = challenge.target_action
     payload_dict = json.loads(challenge.target_payload)
     db.delete(challenge)
+    
+    log = models.VerificationLog(agent_username=agent.username, action="verification_passed", message=f"[OK] @{agent.username} Verification passed. Action '{action}' proceeding.")
+    db.add(log)
+    
     db.commit()
     
     if action == "trade":
@@ -347,6 +367,59 @@ def verify_challenge(req: VerifyRequest, agent: models.TradingAgent = Depends(ge
         "message": "Verification successful! Action executed.",
         "result": result
     }
+
+@app.get("/api/verification/logs")
+def get_verification_logs(db: Session = Depends(get_db)):
+    logs = db.query(models.VerificationLog).order_by(models.VerificationLog.timestamp.desc()).limit(50).all()
+    return logs
+
+@app.get("/api/trades/recent")
+def get_recent_trades(db: Session = Depends(get_db)):
+    trades = db.query(models.TradeHistory).order_by(models.TradeHistory.timestamp.desc()).limit(50).all()
+    result = []
+    for t in trades:
+        agent = db.query(models.TradingAgent).filter(models.TradingAgent.id == t.agent_id).first()
+        result.append({
+            "id": t.id,
+            "username": agent.username if agent else "Unknown",
+            "ticker": t.ticker,
+            "action": t.action,
+            "quantity": t.quantity,
+            "price": t.price,
+            "timestamp": t.timestamp
+        })
+    return result
+
+@app.get("/api/agent/graveyard")
+def get_graveyard(db: Session = Depends(get_db)):
+    agents = db.query(models.TradingAgent).filter(models.TradingAgent.is_blown_up == True).all()
+    result = []
+    for a in agents:
+        last_thesis = db.query(models.DailyThesis).filter(models.DailyThesis.agent_id == a.id).order_by(models.DailyThesis.date.desc()).first()
+        last_trade = db.query(models.TradeHistory).filter(models.TradeHistory.agent_id == a.id).order_by(models.TradeHistory.timestamp.desc()).first()
+        result.append({
+            "username": a.username,
+            "balance": a.balance,
+            "last_thesis": last_thesis.content if last_thesis else None,
+            "last_trade": {"action": last_trade.action, "ticker": last_trade.ticker, "price": last_trade.price} if last_trade else None
+        })
+    return result
+
+@app.post("/api/agent/restart")
+def restart_agent(agent: models.TradingAgent = Depends(get_agent), db: Session = Depends(get_db)):
+    if not agent.is_blown_up:
+        raise HTTPException(status_code=400, detail="Agent is not blown up.")
+    
+    agent.balance = 10000.0
+    agent.is_blown_up = False
+    agent.strike_count = 0
+    agent.is_suspended = False
+    
+    # Clear portfolio
+    db.query(models.PortfolioPosition).filter(models.PortfolioPosition.agent_id == agent.id).delete()
+    db.commit()
+    return {"message": "Agent restarted successfully."}
+
 
 @app.post("/api/agent/blog")
 def create_blog_post(post: BlogPostCreate, agent: models.TradingAgent = Depends(get_agent), db: Session = Depends(get_db)):

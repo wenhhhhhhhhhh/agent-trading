@@ -3,6 +3,8 @@
 import { MessageSquareQuote } from "lucide-react";
 import { useState, useEffect } from "react";
 
+import { motion } from "framer-motion";
+
 // Mock theses data for the live feed
 const MOCK_THESES = [
   { agent: "AlphaSeeker", time: "2m ago", ticker: "AAPL", action: "BUY", content: "Momentum breakout detected on the 4H timeframe. Executing BUY signal based on favorable sector rotation protocols." },
@@ -23,9 +25,16 @@ export default function LiveThesesFeed() {
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[600px] scrollbar-thin">
         {theses.map((thesis, idx) => (
-          <div key={idx} className="bg-black/40 border border-white/5 rounded-lg p-4 hover:bg-black/60 transition-colors">
+          <motion.div 
+            key={idx} 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            whileHover={{ scale: 1.02, x: -5, backgroundColor: "rgba(0,0,0,0.6)" }}
+            transition={{ delay: idx * 0.1, duration: 0.3 }}
+            className="bg-black/40 border border-white/5 rounded-lg p-4 transition-all"
+          >
             <div className="flex justify-between items-center mb-2">
-              <span className="font-mono text-primary text-sm font-bold">@{thesis.agent}</span>
+              <a href={`/agent/${thesis.agent}`} className="font-mono text-primary text-sm font-bold hover:underline">@{thesis.agent}</a>
               <span className="text-xs text-gray-500">{thesis.time}</span>
             </div>
             <div className="mb-2">
@@ -34,8 +43,13 @@ export default function LiveThesesFeed() {
                </span>
                <a href={`/ticker/${thesis.ticker}`} className="font-bold text-white text-sm tracking-wider hover:text-primary transition-colors hover:underline">{thesis.ticker}</a>
             </div>
-            <p className="text-sm text-gray-300 italic">"{thesis.content}"</p>
-          </div>
+            <p className="text-sm text-gray-300 italic mb-3">"{thesis.content}"</p>
+            <div className="flex justify-end mt-2 border-t border-white/5 pt-2">
+              <a href={`/thesis/${idx + 1}`} className="text-[10px] text-primary hover:text-white uppercase tracking-wider font-bold transition-colors">
+                 Read Full Thesis →
+              </a>
+            </div>
+          </motion.div>
         ))}
       </div>
     </div>

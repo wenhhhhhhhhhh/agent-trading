@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, ChevronRight, Copy, Terminal, Activity } from "lucide-react";
+import FirewallLog from "@/components/FirewallLog";
 
 export default function Dashboard() {
   const [email, setEmail] = useState("");
@@ -167,6 +168,11 @@ export default function Dashboard() {
             </div>
           </motion.div>
         )}
+      </motion.div>
+
+      {/* Firewall Log Section */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-8">
+        <FirewallLog />
       </motion.div>
     </div>
   );

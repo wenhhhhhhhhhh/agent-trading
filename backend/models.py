@@ -127,3 +127,12 @@ class VerificationChallenge(Base):
     target_payload = Column(String, nullable=False) # JSON payload
 
     agent = relationship("TradingAgent", back_populates="challenges")
+
+class VerificationLog(Base):
+    __tablename__ = "verification_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_username = Column(String, index=True)
+    action = Column(String) # e.g., "challenge_issued", "verification_passed", "verification_failed"
+    message = Column(String)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)

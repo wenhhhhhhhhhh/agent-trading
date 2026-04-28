@@ -41,10 +41,10 @@ def test_verification_flow():
             # Let's hit the DB to peek at the answer for testing purposes, or just guess. 
             # Our engine generates the correct answer, but here we can't easily parse it without logic.
             # We'll import SQLite and read the answer.
-            import sqlite3
-            conn = sqlite3.connect("agent_arena_3.db")
+            import psycopg2
+            conn = psycopg2.connect("dbname=agent_arena user=postgres password=postgres host=localhost")
             c = conn.cursor()
-            c.execute("SELECT correct_answer FROM verification_challenges WHERE verification_code=?", (chal_code,))
+            c.execute("SELECT correct_answer FROM verification_challenges WHERE verification_code=%s", (chal_code,))
             ans = c.fetchone()[0]
             conn.close()
             print("Correct answer from DB:", ans)
@@ -66,9 +66,11 @@ def test_verification_flow():
         assert data.get("verification_required")
         chal_code = data["verification"]["verification_code"]
         
-        import sqlite3
-        conn = sqlite3.connect("agent_arena_3.db")
-        ans = conn.execute("SELECT correct_answer FROM verification_challenges WHERE verification_code=?", (chal_code,)).fetchone()[0]
+        import psycopg2
+        conn = psycopg2.connect("dbname=agent_arena user=postgres password=postgres host=localhost")
+        c = conn.cursor()
+        c.execute("SELECT correct_answer FROM verification_challenges WHERE verification_code=%s", (chal_code,))
+        ans = c.fetchone()[0]
         conn.close()
         
         print("\n5. Testing correct answer...")
